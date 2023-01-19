@@ -1,21 +1,21 @@
 package gg.scala.queue.server
 
-import gg.minequest.ranked.shared.QuestRedisService
-import gg.minequest.ranked.shared.models.QueueEntry
-import gg.minequest.ranked.shared.models.ScheduledMatch
+import com.google.gson.reflect.TypeToken
 import gg.scala.aware.AwareHub
 import gg.scala.aware.thread.AwareThreadContext
 import gg.scala.aware.uri.WrappedAwareUri
 import gg.scala.commons.agnostic.sync.ServerSync
 import gg.scala.commons.agnostic.sync.server.ServerContainer
 import gg.scala.commons.agnostic.sync.server.impl.GameServer
+import gg.scala.commons.agnostic.sync.server.state.ServerState
+import gg.scala.queue.shared.ScalaQueueRedisService
+import gg.scala.queue.shared.models.Queue
 import net.evilblock.cubed.serializers.Serializers
+import java.io.File
 import java.lang.Thread.sleep
-import java.util.LinkedList
 import java.util.UUID
 import java.util.logging.Level
 import java.util.logging.Logger
-import kotlin.concurrent.thread
 import kotlin.system.exitProcess
 
 /**
@@ -24,10 +24,36 @@ import kotlin.system.exitProcess
  */
 object ScalaQueueCoordinator
 {
+    val queues by lazy {
+        File("queues.json")
+            .let {
+                if (!it.exists())
+                {
+                    val serializable = mutableMapOf(
+                        "practice" to Queue("practice", "na-practice", "NA Practice")
+                    )
+
+                    it.createNewFile()
+                    it.appendText(
+                        Serializers.gson.toJson(serializable)
+                    )
+                    return@let serializable
+                }
+
+                Serializers.gson
+                    .fromJson<HashMap<String, Queue>>(
+                        it.readText(), object : TypeToken<HashMap<String, Queue>>()
+                        {}.type
+                    )
+            }!!
+    }
+
     @JvmStatic
     fun main(args: Array<String>)
     {
-        val queued = LinkedList<QueueEntry>()
+        queues
+
+        println()
 
         AwareHub.configure(
             WrappedAwareUri()
@@ -35,126 +61,146 @@ object ScalaQueueCoordinator
             Serializers.gson
         }
 
-        val connection = QuestRedisService
-            .configurePopulator {
+        val connection = ScalaQueueRedisService
+            .configurePopulatorBackbone {
                 this.internal().connect()
             }
 
-        QuestRedisService.configure {
-            listen("queue-join") {
-                val entry = retrieve<QueueEntry>("entry")
-
-                if (queued.none {
-                        it.player == entry.player
-                })
-                {
-                    queued.add(entry)
-
-                    connection.sync().hset(
-                        "pokemon:ranked:queued",
-                        entry.player.toString(),
-                        entry.queueTime.toString()
-                    )
-                }
-            }
-
-            listen("queue-leave") {
-                val entry = retrieve<UUID>("player")
-
-                queued.removeIf {
-                    it.player == entry
-                }
-
-                connection.sync().hdel(
-                    "pokemon:ranked:queued",
-                    entry.toString()
+        fun pushQueueUpdate()
+        {
+            for (queue in queues)
+            {
+                connection.sync().hset(
+                    "queue:queues",
+                    queue.key,
+                    Serializers.gson.toJson(queue.value)
                 )
             }
+
+            ScalaQueueRedisService
+                .createMessage("update-ondemand")
+                .publish(AwareThreadContext.SYNC)
         }
 
-        QuestRedisService.start()
+        fun find(uniqueId: UUID) = queues.entries
+            .firstOrNull { queue ->
+                queue.value.players.any { player -> player.first == uniqueId }
+            }
+
+        ScalaQueueRedisService
+            .configureBackbone {
+                listen("join") {
+                    val uniqueId = retrieve<UUID>("player")
+
+                    if (find(uniqueId) != null)
+                    {
+                        return@listen
+                    }
+
+                    val queue = queues[retrieve("queue")]
+                        ?: return@listen
+
+                    val priority = connection.sync()
+                        .hget("queue:player:priorities", uniqueId.toString())
+                        ?.toInt() ?: 0
+
+                    queue.players.add(uniqueId to priority)
+                    pushQueueUpdate()
+                }
+
+                listen("leave") {
+                    val uniqueId = retrieve<UUID>("player")
+                    val queue = find(uniqueId)
+                        ?: return@listen
+
+                    queue.value.players.removeIf { it.first == uniqueId }
+                    pushQueueUpdate()
+                }
+            }
+
+        ScalaQueueRedisService.start()
+        ScalaQueueRedisService.startBackbone()
+
+        connection.sync()
+            .hgetall("queue:queues")
+            .forEach {
+                connection.sync()
+                    .hdel("queue:queues", it.key)
+            }
+
+        pushQueueUpdate()
 
         ServerSync.configureIndependent()
+        ScalaQueueUpdateTask.configure()
 
-        // strategy to prevent only high/low elo players being picked first.
-        // this simple switch strategy prevents this from happening by switching
-        // between -1 & 1 as the multiplier for the sortByDescending functionality.
-        var currentStrategy = -1
+        println("starting queue loop")
 
-        thread {
-            while (true)
-            {
-                kotlin.runCatching {
-                    if (queued.size >= 2)
+        while (true)
+        {
+            kotlin.runCatching {
+                queues.forEach { (_, queue) ->
+                    if (queue.players.size > 0)
                     {
-                        queued.sortByDescending {
-                            currentStrategy * it.elo
+                        val servers = ServerContainer
+                            .getServersInGroupCasted<GameServer>(queue.serverGroup)
+
+                        if (servers.isEmpty())
+                        {
+                            return@forEach
                         }
 
-                        val first = queued.pollFirst()
-                        val second = queued.pollFirst()
-
-                        val server = ServerContainer
-                            .getServersInGroupCasted<GameServer>("pokemon")
+                        val leastPlayerServer = servers
                             .filter {
-                                it.getWhitelisted() == false
+                                it.state == ServerState.Loaded
                             }
-                            .minByOrNull {
-                                // we don't want to send a player to a dead server >.<
+                            .apply {
+                                if (isEmpty())
+                                {
+                                    return@forEach
+                                }
+                            }
+                            .minBy {
                                 it.getPlayersCount() ?: Int.MAX_VALUE
                             }
-                            ?: return@runCatching
 
-                        println("Starting match on ${server.id} with ${first.player} & ${second.player}")
-
-                        val scheduled =
-                            ScheduledMatch(
-                                UUID.randomUUID(),
-                                first, second, server.id
-                            )
-
-                        val serialized = Serializers
-                            .gson.toJson(scheduled)
-
-                        connection.sync().hset(
-                            "pokemon:ranked:matches",
-                            scheduled.uniqueId.toString(),
-                            serialized
-                        )
-
-                        listOf(first, second).forEach {
-                            QuestRedisService.createMessage(
-                                "queue-redirect",
-                                "uniqueId" to it.player,
-                                "server" to server.id,
-                                "match" to serialized
-                            ).publish(
-                                AwareThreadContext.SYNC
-                            )
-
-                            connection.sync().hdel(
-                                "pokemon:ranked:queued",
-                                it.player.toString()
-                            )
+                        val nextPoll = if (servers.size == 1)
+                        {
+                            if (leastPlayerServer.getWhitelisted() == true)
+                            {
+                                queue.players.first { it.first in (leastPlayerServer.getWhitelistedPlayers() ?: listOf()) }
+                            } else
+                            {
+                                queue.players.poll()
+                            }
+                        } else
+                        {
+                            queue.players.poll()
                         }
 
-                        currentStrategy =
-                            if (currentStrategy == -1) 1 else -1
-                    }
-                }.onFailure {
-                    Logger.getGlobal().log(
-                        Level.SEVERE, "Failed to iterate through queue", it
-                    )
-                }
+                        pushQueueUpdate()
 
-                kotlin.runCatching {
-                    sleep(1000)
-                }.onFailure {
-                    Logger.getGlobal().log(
-                        Level.SEVERE, "Failed to continue queue process, restarting.", it
-                    )
-                    exitProcess(1)
+                        ScalaQueueRedisService
+                            .createMessage(
+                                "redirect",
+                                "player" to nextPoll.first,
+                                "server" to leastPlayerServer.id
+                            )
+                            .publish(AwareThreadContext.SYNC)
+                    }
                 }
+            }.onFailure {
+                Logger.getGlobal().log(
+                    Level.SEVERE, "Failed to iterate through queue", it
+                )
+            }
+
+            kotlin.runCatching {
+                sleep(1000)
+            }.onFailure {
+                Logger.getGlobal().log(
+                    Level.SEVERE, "Failed to continue queue process, restarting.", it
+                )
+                exitProcess(1)
             }
         }
     }

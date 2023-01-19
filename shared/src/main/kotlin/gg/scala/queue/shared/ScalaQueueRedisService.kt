@@ -14,10 +14,42 @@ object ScalaQueueRedisService
 {
     private val aware by lazy {
         AwareBuilder
-            .of<AwareMessage>("queue")
+            .of<AwareMessage>("queue:spigot")
             .codec(AwareMessageCodec)
             .logger(Logger.getAnonymousLogger())
             .build()
+    }
+
+    private val backbone by lazy {
+        AwareBuilder
+            .of<AwareMessage>("queue:backbone")
+            .codec(AwareMessageCodec)
+            .logger(Logger.getAnonymousLogger())
+            .build()
+    }
+
+    fun configureBackbone(
+        lambda: Aware<AwareMessage>.() -> Unit
+    )
+    {
+        this.backbone.lambda()
+    }
+
+    fun <T> configurePopulatorBackbone(
+        lambda: Aware<AwareMessage>.() -> T
+    ): T
+    {
+        return this.backbone.lambda()
+    }
+
+    fun createMessageBackbone(packet: String, vararg pairs: Pair<String, Any?>): AwareMessage =
+        AwareMessage.of(packet, this.backbone, *pairs)
+
+    fun startBackbone()
+    {
+        this.backbone.connect()
+            .toCompletableFuture()
+            .join()
     }
 
     fun configure(

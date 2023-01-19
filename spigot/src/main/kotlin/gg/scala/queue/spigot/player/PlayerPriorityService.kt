@@ -4,8 +4,9 @@ import gg.scala.commons.annotations.custom.CustomAnnotationProcessors
 import gg.scala.flavor.inject.Inject
 import gg.scala.flavor.service.Configure
 import gg.scala.flavor.service.Service
-import gg.scala.queue.shared.ScalaQueueRedisService
+import gg.scala.lemon.handler.PlayerHandler
 import gg.scala.queue.spigot.ScalaQueuePlugin
+import gg.scala.queue.spigot.stream.SpigotRedisService
 import me.lucko.helper.Events
 import org.bukkit.entity.Player
 import org.bukkit.event.player.PlayerJoinEvent
@@ -25,23 +26,20 @@ object PlayerPriorityService
     private var prioritySupplier: PlayerPrioritySupplier =
         object : PlayerPrioritySupplier
         {
-            override fun provide(player: Player) = 0
+            override fun provide(player: Player) =
+                PlayerHandler.find(player.uniqueId)
+                    ?.activeGrant?.getRank()?.weight ?: 0
         }
 
     @Configure
     fun configure()
     {
-        val connection = ScalaQueueRedisService
-            .configurePopulator {
-                internal().connect()
-            }
-
         Events
             .subscribe(PlayerJoinEvent::class.java)
             .handler {
                 CompletableFuture
                     .runAsync {
-                        connection.sync().hset(
+                        SpigotRedisService.connection.sync().hset(
                             "queue:player:priorities",
                             "${it.player.uniqueId}",
                             prioritySupplier.provide(it.player).toString()
@@ -57,7 +55,7 @@ object PlayerPriorityService
             .handler {
                 CompletableFuture
                     .runAsync {
-                        connection.sync().hdel(
+                        SpigotRedisService.connection.sync().hdel(
                             "queue:player:priorities",
                             "${it.player.uniqueId}"
                         )
