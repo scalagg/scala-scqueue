@@ -24,7 +24,8 @@ import net.kyori.adventure.key.Key
 @PluginWebsite("https://scala.gg")
 @PluginDependencyComposite(
     PluginDependency("scala-commons"),
-    PluginDependency("Lemon")
+    PluginDependency("Lemon"),
+    PluginDependency("cloudsync", soft = true),
 )
 class ScalaQueuePlugin : ExtendedScalaPlugin()
 {

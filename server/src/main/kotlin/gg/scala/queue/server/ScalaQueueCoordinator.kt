@@ -10,12 +10,14 @@ import gg.scala.commons.agnostic.sync.server.impl.GameServer
 import gg.scala.commons.agnostic.sync.server.state.ServerState
 import gg.scala.queue.shared.ScalaQueueRedisService
 import gg.scala.queue.shared.models.Queue
+import gg.scala.queue.shared.models.QueueEntry
 import net.evilblock.cubed.serializers.Serializers
 import java.io.File
 import java.lang.Thread.sleep
-import java.util.UUID
+import java.util.*
 import java.util.logging.Level
 import java.util.logging.Logger
+import kotlin.collections.HashMap
 import kotlin.system.exitProcess
 
 /**
@@ -104,7 +106,9 @@ object ScalaQueueCoordinator
                         .hget("queue:player:priorities", uniqueId.toString())
                         ?.toInt() ?: 0
 
-                    queue.players.add(uniqueId to priority)
+                    queue.players.add(
+                        QueueEntry(uniqueId, priority)
+                    )
                     pushQueueUpdate()
                 }
 
@@ -163,29 +167,34 @@ object ScalaQueueCoordinator
                                 it.getPlayersCount() ?: Int.MAX_VALUE
                             }
 
-                        val nextPoll = if (servers.size == 1)
+                        val priorityQueue = PriorityQueue(queue.players)
+
+                        if (leastPlayerServer.getWhitelisted() == true)
                         {
-                            if (leastPlayerServer.getWhitelisted() == true)
-                            {
-                                queue.players.first { it.first in (leastPlayerServer.getWhitelistedPlayers() ?: listOf()) }
-                            } else
-                            {
-                                queue.players.poll()
+                            priorityQueue.removeIf {
+                                !(leastPlayerServer
+                                    .getMetadataValue<List<String>>(
+                                        "server", "whitelisted-players"
+                                    )
+                                    ?.contains(it.toString())
+                                    ?: false)
                             }
-                        } else
-                        {
-                            queue.players.poll()
                         }
 
-                        pushQueueUpdate()
+                        if (priorityQueue.isNotEmpty())
+                        {
+                            val uniqueId = priorityQueue.poll()
+                            pushQueueUpdate()
 
-                        ScalaQueueRedisService
-                            .createMessage(
-                                "redirect",
-                                "player" to nextPoll.first,
-                                "server" to leastPlayerServer.id
-                            )
-                            .publish(AwareThreadContext.SYNC)
+                            ScalaQueueRedisService
+                                .createMessage(
+                                    "redirect",
+                                    "player" to uniqueId.first,
+                                    "server" to leastPlayerServer.id,
+                                    "display" to queue.displayName,
+                                )
+                                .publish(AwareThreadContext.SYNC)
+                        }
                     }
                 }
             }.onFailure {
@@ -195,7 +204,7 @@ object ScalaQueueCoordinator
             }
 
             kotlin.runCatching {
-                sleep(1000)
+                sleep(500)
             }.onFailure {
                 Logger.getGlobal().log(
                     Level.SEVERE, "Failed to continue queue process, restarting.", it

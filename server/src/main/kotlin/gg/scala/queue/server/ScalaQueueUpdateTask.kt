@@ -50,10 +50,10 @@ object ScalaQueueUpdateTask : Runnable
             val offline = instance == null || (instance as AbstractServer).state != ServerState.Loaded
             val whitelisted = instance != null && instance.getWhitelisted() == true
 
-            for ((uuid, _) in queue.players)
+            for (entry in queue.players)
             {
                 var baseMessage = language.updateMessage
-                    .replace("{pos}", queue.position(uuid).toString())
+                    .replace("{pos}", queue.position(entry.first).toString())
                     .replace("{max}", queue.players.size.toString())
                     .replace("{queue}", queue.displayName)
 
@@ -65,7 +65,7 @@ object ScalaQueueUpdateTask : Runnable
                     baseMessage += "\n${language.whitelistedAddition}"
                 }
 
-                messageMap[uuid] = "$baseMessage\n "
+                messageMap[entry.first] = "$baseMessage\n "
             }
 
             ScalaQueueRedisService

@@ -1,5 +1,8 @@
 package gg.scala.queue.spigot.stream
 
+import com.google.gson.TypeAdapter
+import com.google.gson.stream.JsonReader
+import com.google.gson.stream.JsonWriter
 import gg.scala.flavor.inject.Inject
 import gg.scala.flavor.service.Configure
 import gg.scala.flavor.service.Service
@@ -11,6 +14,7 @@ import net.evilblock.cubed.serializers.Serializers
 import net.evilblock.cubed.util.CC
 import org.bukkit.Bukkit
 import org.bukkit.entity.Player
+import java.util.PriorityQueue
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -44,12 +48,13 @@ object SpigotRedisService
                 listen("redirect") {
                     val uniqueId = this.retrieve<UUID>("player")
                     val server = this.retrieve<String>("server")
+                    val display = this.retrieve<String>("display")
 
                     val player = Bukkit.getPlayer(uniqueId)
                         ?: return@listen
 
                     player.sendMessage(
-                        "${CC.GREEN}You're now being sent to ${CC.YELLOW}$server${CC.GREEN}."
+                        "${CC.GREEN}You're now being sent to ${CC.YELLOW}$display${CC.GREEN}."
                     )
 
                     VelocityRedirectSystem.redirect(player, server)
@@ -61,11 +66,12 @@ object SpigotRedisService
 
                 listen("message") {
                     val content =
-                        retrieve<Map<UUID, String>>("content")
+                        retrieve<Map<String, String>>("content")
 
                     for ((uuid, message) in content)
                     {
-                        val bukkit = Bukkit.getPlayer(uuid)
+                        val bukkit = Bukkit
+                            .getPlayer(UUID.fromString(uuid))
                             ?: continue
 
                         // prevent 1.7 formatting issues
