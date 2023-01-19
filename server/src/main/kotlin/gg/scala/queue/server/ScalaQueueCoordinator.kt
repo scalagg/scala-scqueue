@@ -184,6 +184,8 @@ object ScalaQueueCoordinator
                         if (priorityQueue.isNotEmpty())
                         {
                             val uniqueId = priorityQueue.poll()
+                            queue.players.remove(uniqueId)
+
                             pushQueueUpdate()
 
                             ScalaQueueRedisService
