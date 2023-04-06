@@ -16,6 +16,6 @@ data class Queue(
     fun total() = players.size
 
     fun position(uniqueId: UUID) = players
-        .sortedBy { it.second }
+        .sortedByDescending { it.second }
         .indexOfFirst { it.first == uniqueId } + 1
 }
