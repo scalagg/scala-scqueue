@@ -60,10 +60,10 @@ subprojects {
             api "org.jetbrains.kotlin:kotlin-stdlib:1.7.22"
 
             api "gg.scala.aware:aware:1.0.8.3"
-            api "gg.scala.commons:serializers:3.0.7"
+            api "gg.scala.commons:serializers:3.1.9"
 
             api "com.google.code.gson:gson:2.9.0"
-            api "gg.scala.commons:serversync:3.0.7"
+            api "gg.scala.commons:serversync:3.1.9"
             api "io.lettuce:lettuce-core:6.2.0.RELEASE"
 
             api "net.kyori:adventure-key:4.11.0"
