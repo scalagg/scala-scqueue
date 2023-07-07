@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit
 object ScalaQueueUpdateTask : Runnable
 {
     class LanguageConfig(
-        val updateMessage: String = "\n§eYou're position §6{pos}§e/§6{max}§e in the §6{queue}§e queue.\n§7Ranks get a higher priority in queues: §f§ostore.tropic.gg",
+        val updateMessage: String = "\n§eYou're position §b{pos}§e/§b{max}§e in the §b{queue}§e queue.\n§7Ranks get a higher priority in queues: §f§ostore.glade.gg",
         val whitelistedAddition: String = "§cThe server you're queued for is currently whitelisted.",
         val offlineAddition: String = "§cThe server you're queued for is currently offline.",
     )

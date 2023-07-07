@@ -12,6 +12,7 @@ import gg.scala.queue.shared.models.Queue
 import gg.scala.queue.spigot.ScalaQueuePlugin
 import net.evilblock.cubed.serializers.Serializers
 import net.evilblock.cubed.util.CC
+import net.evilblock.cubed.util.bungee.BungeeUtil
 import org.bukkit.Bukkit
 import org.bukkit.entity.Player
 import java.util.PriorityQueue
@@ -57,7 +58,7 @@ object SpigotRedisService
                         "${CC.GREEN}You're now being sent to ${CC.YELLOW}$display${CC.GREEN}."
                     )
 
-                    VelocityRedirectSystem.redirect(player, server)
+                    BungeeUtil.sendToServer(player, server)
                 }
 
                 listen("update-ondemand") {
