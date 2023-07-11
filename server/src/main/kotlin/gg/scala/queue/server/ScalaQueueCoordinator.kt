@@ -56,10 +56,15 @@ object ScalaQueueCoordinator
     val queues: Map<String, Queue>
         get() = backingQueues.queues
 
-    fun removeFromQueue(uniqueId: UUID)
+    fun removeFromQueue(uniqueId: UUID, manual: Boolean = false)
     {
         val queue = find(uniqueId)
             ?: return
+
+        if (manual)
+        {
+            queue.value.totalLeft += 1
+        }
 
         queue.value.players.removeIf { it.first == uniqueId }
         pushQueueUpdate()
@@ -126,7 +131,38 @@ object ScalaQueueCoordinator
 
                 listen("leave") {
                     val uniqueId = retrieve<UUID>("player")
-                    removeFromQueue(uniqueId)
+                    removeFromQueue(uniqueId, true)
+                }
+
+                listen("manager-metrics") {
+                    val uniqueId = retrieve<UUID>("player")
+                    val queue = queues[retrieve("queue")]
+                        ?: return@listen
+
+                    ScalaQueueRedisService
+                        .createMessage(
+                            "message",
+                            "content" to Serializers.gson.toJson(
+                                mutableMapOf(
+                                    "$uniqueId" to """
+                                        Metrics for ${queue.id}:
+                                         Behavior: ${queue.behavior.name}
+                                         Current Queued: ${queue.total()}
+                                         
+                                         Effective Servers: ${queue.servers().size}
+                                         Available Servers: ${queue.servers().count { it.state == ServerState.Loaded }}
+                                         Whitelisted Servers: ${queue.servers().count { it.getWhitelisted() == true }}
+                                         
+                                         Total Queued: ${queue.totalQueued}
+                                         Total Sent: ${queue.totalSent}
+                                         Total Left: ${queue.totalLeft}
+                                         %age sent: ${queue.percentageSent()}
+                                    """.trimIndent()
+                                )
+                            )
+                        ).publish(
+                            AwareThreadContext.SYNC
+                        )
                 }
 
                 listen("network-login") {
@@ -228,6 +264,7 @@ object ScalaQueueCoordinator
                                     }
                                 }
 
+                                queue.totalSent += 1
                                 queue.players.remove(entry)
                                 pushQueueUpdate()
 

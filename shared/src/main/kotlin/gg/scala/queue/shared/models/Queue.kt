@@ -15,6 +15,18 @@ data class Queue(
     val players: PriorityQueue<QueueEntry> = PriorityQueue()
 )
 {
+    @Transient
+    var totalQueued = 0
+
+    @Transient
+    var totalSent = 0
+
+    @Transient
+    var totalLeft = 0
+
+    fun percentageSent() = (if (totalQueued == 0) 0 else
+        totalSent / totalQueued) * 100.0f
+
     fun total() = players.size
 
     fun servers() = when (behavior)
