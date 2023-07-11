@@ -123,6 +123,7 @@ object ScalaQueueCoordinator
                         .hget("queue:player:priorities", uniqueId.toString())
                         ?.toInt() ?: 0
 
+                    queue.totalQueued += 1
                     queue.players.add(
                         QueueEntry(uniqueId, priority)
                     )
