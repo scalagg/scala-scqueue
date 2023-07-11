@@ -9,7 +9,6 @@ import org.apache.commons.lang3.time.DurationFormatUtils
 import java.util.*
 import java.util.concurrent.TimeUnit
 import kotlin.math.max
-import kotlin.math.min
 
 /**
  * @author GrowlyX
@@ -18,9 +17,10 @@ import kotlin.math.min
 object ScalaQueueUpdateTask : Runnable
 {
     class LanguageConfig(
-        val updateMessage: String = "\n§eYou're position §b{pos}§e/§b{max}§e in the §b{queue}§e queue.\n§7Estimated remaining queue time: ~§f{remainingTimeEstimate}\n§7Ranks get a higher priority in queues: §f§ostore.glade.gg",
+        val updateMessage: String = "\n§eYou're position §b{pos}§e/§b{max}§e in the §b{queue}§e queue.\n§7Ranks get a higher priority in queues: §f§ostore.glade.gg",
         val whitelistedAddition: String = "§cThe server you're queued for is currently whitelisted.",
         val offlineAddition: String = "§cThe server you're queued for is currently offline.",
+        val remainingTimeAddition: String = "§7Estimated remaining queue time: §f~{remainingTimeEstimate}",
         val userLoggedInTooLate: String = "§cYou have been removed from the queue you were in as you logged back in too late.",
     )
 
@@ -65,13 +65,6 @@ object ScalaQueueUpdateTask : Runnable
                     .replace("{pos}", positionOfUser.toString())
                     .replace("{max}", queue.total().toString())
                     .replace("{queue}", queue.displayName)
-                    .replace(
-                        "{remainingTimeEstimate}",
-                        DurationFormatUtils.formatDurationWords(
-                            max(500L * positionOfUser, 1000L),
-                            true, true
-                        )
-                    )
 
                 if (offline)
                 {
@@ -79,6 +72,18 @@ object ScalaQueueUpdateTask : Runnable
                 } else if (whitelisted)
                 {
                     baseMessage += "\n${language.whitelistedAddition}"
+                } else
+                {
+                    baseMessage += "\n${
+                        language.remainingTimeAddition
+                            .replace(
+                                "{remainingTimeEstimate}",
+                                DurationFormatUtils.formatDurationWords(
+                                    max(500L * positionOfUser, 1000L),
+                                    true, true
+                                )
+                            )
+                    }"
                 }
 
                 messageMap[entry.first] = "$baseMessage\n "
