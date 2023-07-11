@@ -8,6 +8,8 @@ import net.evilblock.cubed.serializers.Serializers
 import org.apache.commons.lang3.time.DurationFormatUtils
 import java.util.*
 import java.util.concurrent.TimeUnit
+import kotlin.math.max
+import kotlin.math.min
 
 /**
  * @author GrowlyX
@@ -66,7 +68,7 @@ object ScalaQueueUpdateTask : Runnable
                     .replace(
                         "{remainingTimeEstimate}",
                         DurationFormatUtils.formatDurationWords(
-                            500L * positionOfUser,
+                            max(500L * positionOfUser, 1000L),
                             true, true
                         )
                     )
