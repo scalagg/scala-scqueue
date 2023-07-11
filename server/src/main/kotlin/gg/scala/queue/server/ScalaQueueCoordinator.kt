@@ -160,6 +160,7 @@ object ScalaQueueCoordinator
 
         ServerSync.configureIndependent()
         ScalaQueueUpdateTask.configure()
+        QueuePostLogoutPersistence.configure()
 
         println("starting queue loop")
 

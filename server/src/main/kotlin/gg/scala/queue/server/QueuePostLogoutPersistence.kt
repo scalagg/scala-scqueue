@@ -30,7 +30,9 @@ object QueuePostLogoutPersistence : Runnable
             )
     )
 
-    private val persistence = loadComponent<PersistenceConfig>()
+    private val persistence by lazy {
+        loadComponent<PersistenceConfig>()
+    }
     private val NoPersistence = Duration(0, TimeUnit.MINUTES)
 
     data class Duration(
@@ -38,6 +40,18 @@ object QueuePostLogoutPersistence : Runnable
     )
     {
         fun toMillis() = if (this.time == 0L) 0L else unit.toMillis(time)
+    }
+
+    fun configure()
+    {
+        persistence
+
+        QueueServiceExecutor
+            .scheduleAtFixedRate(
+                this,
+                0L, 1L,
+                TimeUnit.SECONDS
+            )
     }
 
     fun userLoggedOut(entry: QueueEntry)

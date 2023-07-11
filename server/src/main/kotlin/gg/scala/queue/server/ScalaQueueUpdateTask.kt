@@ -28,14 +28,14 @@ object ScalaQueueUpdateTask : Runnable
 
     fun configure()
     {
-        val executor = Executors.newSingleThreadScheduledExecutor()
         language
 
-        executor.scheduleAtFixedRate(
-            this, 500L,
-            5000L,
-            TimeUnit.MILLISECONDS
-        )
+        QueueServiceExecutor
+            .scheduleAtFixedRate(
+                this,
+                0L, 5L,
+                TimeUnit.SECONDS
+            )
     }
 
     private fun tick()
