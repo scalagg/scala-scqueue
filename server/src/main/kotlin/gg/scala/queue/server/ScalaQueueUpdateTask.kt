@@ -41,20 +41,24 @@ object ScalaQueueUpdateTask : Runnable
     {
         for ((_, queue) in queues)
         {
-            val instance = ServerContainer
-                .getServersInGroupCasted<GameServer>(queue.serverGroup)
-                .firstOrNull()
-
+            val servers = queue.servers()
             val messageMap = mutableMapOf<UUID, String>()
 
-            val offline = instance == null || (instance as AbstractServer).state != ServerState.Loaded
-            val whitelisted = instance != null && instance.getWhitelisted() == true
+            val offline = servers.isEmpty() || servers
+                .none {
+                    it.state == ServerState.Loaded
+                }
+
+            val whitelisted = servers
+                .all {
+                    it.getWhitelisted() == true
+                }
 
             for (entry in queue.players)
             {
                 var baseMessage = language.updateMessage
                     .replace("{pos}", queue.position(entry.first).toString())
-                    .replace("{max}", queue.players.size.toString())
+                    .replace("{max}", queue.total().toString())
                     .replace("{queue}", queue.displayName)
 
                 if (offline)

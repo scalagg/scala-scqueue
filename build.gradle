@@ -68,6 +68,9 @@ subprojects {
 
             api "net.kyori:adventure-key:4.11.0"
             api "net.kyori:adventure-text-serializer-gson:4.11.0"
+        } else
+        {
+            compileOnly "gg.scala.commons:serversync:3.1.9"
         }
 
         if (project.name != "shared")

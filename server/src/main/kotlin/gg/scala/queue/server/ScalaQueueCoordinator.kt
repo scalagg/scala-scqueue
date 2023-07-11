@@ -5,11 +5,10 @@ import gg.scala.aware.AwareHub
 import gg.scala.aware.thread.AwareThreadContext
 import gg.scala.aware.uri.WrappedAwareUri
 import gg.scala.commons.agnostic.sync.ServerSync
-import gg.scala.commons.agnostic.sync.server.ServerContainer
-import gg.scala.commons.agnostic.sync.server.impl.GameServer
 import gg.scala.commons.agnostic.sync.server.state.ServerState
 import gg.scala.queue.shared.ScalaQueueRedisService
 import gg.scala.queue.shared.models.Queue
+import gg.scala.queue.shared.models.QueueBehavior
 import gg.scala.queue.shared.models.QueueEntry
 import net.evilblock.cubed.serializers.Serializers
 import java.io.File
@@ -18,6 +17,7 @@ import java.util.*
 import java.util.logging.Level
 import java.util.logging.Logger
 import kotlin.collections.HashMap
+import kotlin.concurrent.thread
 import kotlin.system.exitProcess
 
 /**
@@ -32,7 +32,12 @@ object ScalaQueueCoordinator
                 if (!it.exists())
                 {
                     val serializable = mutableMapOf(
-                        "practice" to Queue("practice", "na-practice", "NA Practice")
+                        "practice" to Queue(
+                            "practice",
+                            "practice",
+                            QueueBehavior.Single,
+                            "NA Practice"
+                        )
                     )
 
                     it.createNewFile()
@@ -67,6 +72,8 @@ object ScalaQueueCoordinator
             .configurePopulatorBackbone {
                 this.internal().connect()
             }
+
+        connection.sync().del("queue:queues")
 
         fun pushQueueUpdate()
         {
@@ -139,79 +146,117 @@ object ScalaQueueCoordinator
 
         println("starting queue loop")
 
-        while (true)
-        {
-            kotlin.runCatching {
-                queues.forEach { (_, queue) ->
-                    if (queue.players.size > 0)
-                    {
-                        val servers = ServerContainer
-                            .getServersInGroupCasted<GameServer>(queue.serverGroup)
-
-                        if (servers.isEmpty())
+        queues.forEach { (_, queue) ->
+            thread {
+                while (true)
+                {
+                    runCatching {
+                        if (queue.players.size > 0)
                         {
-                            return@forEach
-                        }
-
-                        val leastPlayerServer = servers
-                            .filter {
-                                it.state == ServerState.Loaded
+                            val servers = queue.servers()
+                            if (servers.isEmpty())
+                            {
+                                return@runCatching
                             }
-                            .apply {
-                                if (isEmpty())
-                                {
-                                    return@forEach
+
+                            val leastPlayerServer = servers
+                                .filter {
+                                    it.state == ServerState.Loaded
                                 }
-                            }
-                            .minBy {
-                                it.getPlayersCount() ?: Int.MAX_VALUE
-                            }
+                                .apply {
+                                    if (isEmpty())
+                                    {
+                                        return@runCatching
+                                    }
+                                }
+                                .minBy {
+                                    it.getPlayersCount() ?: Int.MAX_VALUE
+                                }
 
-                        val priorityQueue = PriorityQueue(queue.players)
+                            val playerCount = leastPlayerServer
+                                .getPlayersCount()
+                                ?: Int.MAX_VALUE
 
-                        if (leastPlayerServer.getWhitelisted() == true)
-                        {
-                            priorityQueue.removeIf {
-                                !(leastPlayerServer
+                            val maxPlayerCount = leastPlayerServer
+                                .getMaxPlayers()
+                                ?: Int.MIN_VALUE
+
+                            val serverAtCapacity = playerCount >= maxPlayerCount
+
+                            val priorityQueue = PriorityQueue(queue.players)
+
+                            if (leastPlayerServer.getWhitelisted() == true)
+                            {
+                                val whitelistedPlayers = leastPlayerServer
                                     .getMetadataValue<List<String>>(
                                         "server", "whitelisted-players"
                                     )
-                                    ?.contains(it.toString())
-                                    ?: false)
+                                    ?: return@runCatching
+
+                                priorityQueue.removeIf {
+                                    !whitelistedPlayers.contains(it.first.toString())
+                                }
+                            }
+
+                            if (priorityQueue.isNotEmpty())
+                            {
+                                val entry = priorityQueue.poll()
+
+                                if (serverAtCapacity)
+                                {
+                                    // TODO: configurable value for minimum weight
+                                    //  to send if server at capacity
+                                    if (entry.second <= 1600)
+                                    {
+                                        return@runCatching
+                                    }
+                                }
+
+                                queue.players.remove(entry)
+                                pushQueueUpdate()
+
+                                ScalaQueueRedisService
+                                    .createMessage(
+                                        "redirect",
+                                        "player" to entry.first,
+                                        "server" to leastPlayerServer.id,
+                                        "display" to queue.displayName,
+                                    )
+                                    .publish(AwareThreadContext.SYNC)
                             }
                         }
+                    }.onFailure {
+                        Logger.getGlobal().log(
+                            Level.SEVERE, "Failed to iterate through queue", it
+                        )
+                    }
 
-                        if (priorityQueue.isNotEmpty())
+                    if (queue.players.isEmpty())
+                    {
+                        while (queue.players.isEmpty())
                         {
-                            val uniqueId = priorityQueue.poll()
-                            queue.players.remove(uniqueId)
-
-                            pushQueueUpdate()
-
-                            ScalaQueueRedisService
-                                .createMessage(
-                                    "redirect",
-                                    "player" to uniqueId.first,
-                                    "server" to leastPlayerServer.id,
-                                    "display" to queue.displayName,
-                                )
-                                .publish(AwareThreadContext.SYNC)
+                            sleep(50L)
                         }
+
+                        continue
+                    }
+
+                    kotlin.runCatching {
+                        sleep(500)
+                    }.onFailure {
+                        Logger.getGlobal().log(
+                            Level.SEVERE, "Failed to continue queue process, restarting.", it
+                        )
+                        exitProcess(1)
                     }
                 }
-            }.onFailure {
-                Logger.getGlobal().log(
-                    Level.SEVERE, "Failed to iterate through queue", it
-                )
             }
+        }
 
-            kotlin.runCatching {
-                sleep(500)
-            }.onFailure {
-                Logger.getGlobal().log(
-                    Level.SEVERE, "Failed to continue queue process, restarting.", it
-                )
-                exitProcess(1)
+        thread {
+            while (true)
+            {
+                sleep(Long.MAX_VALUE)
             }
         }
     }
