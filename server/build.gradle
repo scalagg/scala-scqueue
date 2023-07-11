@@ -2,6 +2,11 @@ plugins {
     id "application"
 }
 
+dependencies {
+    // https://mvnrepository.com/artifact/org.apache.commons/commons-lang3
+    implementation 'org.apache.commons:commons-lang3:3.12.0'
+}
+
 application {
     mainClassName "gg.scala.queue.server.ScalaQueueCoordinator"
 }
