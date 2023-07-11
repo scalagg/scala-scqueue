@@ -38,6 +38,13 @@ object ScalaQueueCoordinator
         )
     )
 
+    private val connection by lazy {
+        ScalaQueueRedisService
+            .configurePopulatorBackbone {
+                this.internal().connect()
+            }
+    }
+
     private val priorities by lazy {
         loadComponent<PriorityConfig>()
     }
@@ -49,13 +56,41 @@ object ScalaQueueCoordinator
     val queues: Map<String, Queue>
         get() = backingQueues.queues
 
+    fun removeFromQueue(uniqueId: UUID)
+    {
+        val queue = find(uniqueId)
+            ?: return
+
+        queue.value.players.removeIf { it.first == uniqueId }
+        pushQueueUpdate()
+    }
+
+    fun find(uniqueId: UUID) = queues.entries
+        .firstOrNull { queue ->
+            queue.value.players.any { player -> player.first == uniqueId }
+        }
+
+    fun pushQueueUpdate()
+    {
+        for (queue in queues)
+        {
+            connection.sync().hset(
+                "queue:queues",
+                queue.key,
+                Serializers.gson.toJson(queue.value)
+            )
+        }
+
+        ScalaQueueRedisService
+            .createMessage("update-ondemand")
+            .publish(AwareThreadContext.SYNC)
+    }
+
     @JvmStatic
     fun main(args: Array<String>)
     {
         queues
         priorities
-
-        println()
 
         AwareHub.configure(
             WrappedAwareUri()
@@ -63,33 +98,8 @@ object ScalaQueueCoordinator
             Serializers.gson
         }
 
-        val connection = ScalaQueueRedisService
-            .configurePopulatorBackbone {
-                this.internal().connect()
-            }
-
+        connection
         connection.sync().del("queue:queues")
-
-        fun pushQueueUpdate()
-        {
-            for (queue in queues)
-            {
-                connection.sync().hset(
-                    "queue:queues",
-                    queue.key,
-                    Serializers.gson.toJson(queue.value)
-                )
-            }
-
-            ScalaQueueRedisService
-                .createMessage("update-ondemand")
-                .publish(AwareThreadContext.SYNC)
-        }
-
-        fun find(uniqueId: UUID) = queues.entries
-            .firstOrNull { queue ->
-                queue.value.players.any { player -> player.first == uniqueId }
-            }
 
         ScalaQueueRedisService
             .configureBackbone {
@@ -116,11 +126,23 @@ object ScalaQueueCoordinator
 
                 listen("leave") {
                     val uniqueId = retrieve<UUID>("player")
-                    val queue = find(uniqueId)
-                        ?: return@listen
+                    removeFromQueue(uniqueId)
+                }
 
-                    queue.value.players.removeIf { it.first == uniqueId }
-                    pushQueueUpdate()
+                listen("network-login") {
+                    val uniqueId = retrieve<UUID>("player")
+                    QueuePostLogoutPersistence.userLoggedBackIn(uniqueId)
+                }
+
+                listen("network-logout") {
+                    val uniqueId = retrieve<UUID>("player")
+                    find(uniqueId)
+                        ?.apply {
+                            QueuePostLogoutPersistence
+                                .userLoggedOut(
+                                    value.players.first { it.first == uniqueId }
+                                )
+                        }
                 }
             }
 

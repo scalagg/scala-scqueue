@@ -19,9 +19,10 @@ object ScalaQueueUpdateTask : Runnable
         val updateMessage: String = "\n§eYou're position §b{pos}§e/§b{max}§e in the §b{queue}§e queue.\n§7Ranks get a higher priority in queues: §f§ostore.glade.gg",
         val whitelistedAddition: String = "§cThe server you're queued for is currently whitelisted.",
         val offlineAddition: String = "§cThe server you're queued for is currently offline.",
+        val userLoggedInTooLate: String = "§cYou have been removed from the queue you were in as you logged back in too late.",
     )
 
-    private val language by lazy {
+    val language by lazy {
         loadComponent<LanguageConfig>()
     }
 
