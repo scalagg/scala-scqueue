@@ -1,9 +1,6 @@
 package gg.scala.queue.server
 
 import gg.scala.aware.thread.AwareThreadContext
-import gg.scala.commons.agnostic.sync.server.AbstractServer
-import gg.scala.commons.agnostic.sync.server.ServerContainer
-import gg.scala.commons.agnostic.sync.server.impl.GameServer
 import gg.scala.commons.agnostic.sync.server.state.ServerState
 import gg.scala.queue.server.ScalaQueueCoordinator.queues
 import gg.scala.queue.shared.ScalaQueueRedisService
@@ -24,11 +21,14 @@ object ScalaQueueUpdateTask : Runnable
         val offlineAddition: String = "§cThe server you're queued for is currently offline.",
     )
 
-    private val language = LanguageConfig()
+    private val language by lazy {
+        loadComponent<LanguageConfig>()
+    }
 
     fun configure()
     {
         val executor = Executors.newSingleThreadScheduledExecutor()
+        language
 
         executor.scheduleAtFixedRate(
             this, 500L,

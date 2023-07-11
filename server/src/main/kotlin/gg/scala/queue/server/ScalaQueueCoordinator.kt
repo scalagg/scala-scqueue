@@ -1,6 +1,5 @@
 package gg.scala.queue.server
 
-import com.google.gson.reflect.TypeToken
 import gg.scala.aware.AwareHub
 import gg.scala.aware.thread.AwareThreadContext
 import gg.scala.aware.uri.WrappedAwareUri
@@ -11,12 +10,10 @@ import gg.scala.queue.shared.models.Queue
 import gg.scala.queue.shared.models.QueueBehavior
 import gg.scala.queue.shared.models.QueueEntry
 import net.evilblock.cubed.serializers.Serializers
-import java.io.File
 import java.lang.Thread.sleep
 import java.util.*
 import java.util.logging.Level
 import java.util.logging.Logger
-import kotlin.collections.HashMap
 import kotlin.concurrent.thread
 import kotlin.system.exitProcess
 
@@ -26,39 +23,37 @@ import kotlin.system.exitProcess
  */
 object ScalaQueueCoordinator
 {
-    val queues by lazy {
-        File("queues.json")
-            .let {
-                if (!it.exists())
-                {
-                    val serializable = mutableMapOf(
-                        "practice" to Queue(
-                            "practice",
-                            "practice",
-                            QueueBehavior.Single,
-                            "NA Practice"
-                        )
-                    )
+    data class PriorityConfig(
+        val rankPriorityAllowsExceedPlayerCount: Int = 1600
+    )
 
-                    it.createNewFile()
-                    it.appendText(
-                        Serializers.gson.toJson(serializable)
-                    )
-                    return@let serializable
-                }
+    data class QueueConfig(
+        val queues: MutableMap<String, Queue> = mutableMapOf(
+            "practice" to Queue(
+                "practice",
+                "practice",
+                QueueBehavior.Single,
+                "NA Practice"
+            )
+        )
+    )
 
-                Serializers.gson
-                    .fromJson<HashMap<String, Queue>>(
-                        it.readText(), object : TypeToken<HashMap<String, Queue>>()
-                        {}.type
-                    )
-            }!!
+    private val priorities by lazy {
+        loadComponent<PriorityConfig>()
     }
+
+    private val backingQueues by lazy {
+        loadComponent<QueueConfig>()
+    }
+
+    val queues: Map<String, Queue>
+        get() = backingQueues.queues
 
     @JvmStatic
     fun main(args: Array<String>)
     {
         queues
+        priorities
 
         println()
 
@@ -204,9 +199,7 @@ object ScalaQueueCoordinator
 
                                 if (serverAtCapacity)
                                 {
-                                    // TODO: configurable value for minimum weight
-                                    //  to send if server at capacity
-                                    if (entry.second <= 1600)
+                                    if (entry.second <= priorities.rankPriorityAllowsExceedPlayerCount)
                                     {
                                         return@runCatching
                                     }
