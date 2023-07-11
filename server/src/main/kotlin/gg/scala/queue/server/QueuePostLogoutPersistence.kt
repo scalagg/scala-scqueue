@@ -44,18 +44,25 @@ object QueuePostLogoutPersistence : Runnable
 
     fun configure()
     {
-        persistence
-
-        QueueServiceExecutor
-            .scheduleAtFixedRate(
-                this,
-                0L, 1L,
-                TimeUnit.SECONDS
-            )
+        if (persistence.enabled)
+        {
+            QueueServiceExecutor
+                .scheduleAtFixedRate(
+                    this,
+                    0L, 1L,
+                    TimeUnit.SECONDS
+                )
+        }
     }
 
     fun userLoggedOut(entry: QueueEntry)
     {
+        if (!persistence.enabled)
+        {
+            ScalaQueueCoordinator.removeFromQueue(entry.first)
+            return
+        }
+
         for (reversed in persistence.priorityRanges.entries.reversed())
         {
             if (entry.second > reversed.key)
