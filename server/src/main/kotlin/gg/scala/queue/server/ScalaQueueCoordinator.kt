@@ -98,7 +98,7 @@ object ScalaQueueCoordinator
         priorities
 
         AwareHub.configure(
-            WrappedAwareUri()
+            WrappedAwareUri(index = args.getOrNull(0)?.toInt() ?: 0)
         ) {
             Serializers.gson
         }
