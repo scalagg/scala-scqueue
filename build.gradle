@@ -1,7 +1,7 @@
 plugins {
     id "maven-publish"
-    id "org.jetbrains.kotlin.jvm" version "1.7.22"
-    id "org.jetbrains.kotlin.kapt" version "1.7.22"
+    id "org.jetbrains.kotlin.jvm" version "1.9.10"
+    id "org.jetbrains.kotlin.kapt" version "1.9.10"
     id "com.github.johnrengelman.shadow" version "7.1.2"
 }
 
@@ -60,14 +60,14 @@ subprojects {
             api "gg.scala.commons:serializers:3.1.9"
 
             api "com.google.code.gson:gson:2.9.0"
-            api "gg.scala.commons:serversync:3.1.9"
+            api "gg.scala.commons:serversync:3.3.1"
             api "io.lettuce:lettuce-core:6.2.0.RELEASE"
 
             api "net.kyori:adventure-key:4.11.0"
             api "net.kyori:adventure-text-serializer-gson:4.11.0"
         } else
         {
-            compileOnly "gg.scala.commons:serversync:3.1.9"
+            compileOnly "gg.scala.commons:serversync:3.3.1"
         }
 
         if (project.name != "shared")
