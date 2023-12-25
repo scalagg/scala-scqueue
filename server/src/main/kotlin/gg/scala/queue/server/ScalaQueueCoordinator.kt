@@ -296,7 +296,7 @@ object ScalaQueueCoordinator
                     }
 
                     kotlin.runCatching {
-                        sleep(500)
+                        sleep(200)
                     }.onFailure {
                         Logger.getGlobal().log(
                             Level.SEVERE, "Failed to continue queue process, restarting.", it
