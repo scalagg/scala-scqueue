@@ -105,6 +105,7 @@ object ScalaQueueCoordinator
     @JvmStatic
     fun main(args: Array<String>)
     {
+        redis
         queues
         priorities
 
