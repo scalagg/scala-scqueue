@@ -155,23 +155,21 @@ object ScalaQueueCoordinator
                     ScalaQueueRedisService
                         .createMessage(
                             "message",
-                            "content" to Serializers.gson.toJson(
-                                mutableMapOf(
-                                    "$uniqueId" to """
-                                        Metrics for ${queue.id}:
-                                         Behavior: ${queue.behavior.name}
-                                         Current Queued: ${queue.total()}
-                                         
-                                         Effective Servers: ${queue.servers().size}
-                                         Available Servers: ${queue.servers().count { it.state == ServerState.Loaded }}
-                                         Whitelisted Servers: ${queue.servers().count { it.getWhitelisted() == true }}
-                                         
-                                         Total Queued: ${queue.totalQueued}
-                                         Total Sent: ${queue.totalSent}
-                                         Total Left: ${queue.totalLeft}
-                                         %age sent: ${queue.percentageSent()}
-                                    """.trimIndent()
-                                )
+                            "content" to mutableMapOf(
+                                "$uniqueId" to """
+                                    Metrics for ${queue.id}:
+                                     Behavior: ${queue.behavior.name}
+                                     Current Queued: ${queue.total()}
+                                     
+                                     Effective Servers: ${queue.servers().size}
+                                     Available Servers: ${queue.servers().count { it.state == ServerState.Loaded }}
+                                     Whitelisted Servers: ${queue.servers().count { it.getWhitelisted() == true }}
+                                     
+                                     Total Queued: ${queue.totalQueued}
+                                     Total Sent: ${queue.totalSent}
+                                     Total Left: ${queue.totalLeft}
+                                     %age sent: ${queue.percentageSent()}
+                                """.trimIndent()
                             )
                         ).publish(
                             AwareThreadContext.SYNC

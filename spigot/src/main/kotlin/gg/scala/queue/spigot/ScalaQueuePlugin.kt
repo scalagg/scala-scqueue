@@ -4,11 +4,8 @@ import gg.scala.commons.ExtendedScalaPlugin
 import gg.scala.commons.agnostic.sync.ServerSync
 import gg.scala.commons.annotations.commands.ManualRegister
 import gg.scala.commons.command.ScalaCommandManager
-import gg.scala.commons.core.plugin.Plugin
-import gg.scala.commons.core.plugin.PluginAuthor
-import gg.scala.commons.core.plugin.PluginDependency
-import gg.scala.commons.core.plugin.PluginDependencyComposite
-import gg.scala.commons.core.plugin.PluginWebsite
+import me.lucko.helper.plugin.ap.Plugin
+import me.lucko.helper.plugin.ap.PluginDependency
 import gg.scala.queue.spigot.command.JoinQueueCommand
 import net.kyori.adventure.key.Key
 
@@ -20,13 +17,7 @@ import net.kyori.adventure.key.Key
     name = "ScQueue",
     version = "%remote%/%branch%/%id%"
 )
-@PluginAuthor("Scala")
-@PluginWebsite("https://scala.gg")
-@PluginDependencyComposite(
-    PluginDependency("scala-commons"),
-    PluginDependency("Lemon"),
-    PluginDependency("cloudsync", soft = true),
-)
+@PluginDependency("scala-commons")
 class ScalaQueuePlugin : ExtendedScalaPlugin()
 {
     @ManualRegister

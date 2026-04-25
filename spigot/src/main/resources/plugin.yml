@@ -1,0 +1,7 @@
+name: ScQueue
+version: '%remote%/%branch%/%id%'
+main: gg.scala.queue.spigot.ScalaQueuePlugin
+depend:
+  - scala-commons
+  - Lemon
+  - store-spigot

@@ -3,7 +3,6 @@ package gg.scala.queue.server
 import gg.scala.aware.thread.AwareThreadContext
 import gg.scala.queue.shared.ScalaQueueRedisService
 import gg.scala.queue.shared.models.QueueEntry
-import net.evilblock.cubed.serializers.Serializers
 import java.util.SortedMap
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -89,10 +88,8 @@ object QueuePostLogoutPersistence : Runnable
             ScalaQueueRedisService
                 .createMessage(
                     "message",
-                    "content" to Serializers.gson.toJson(
-                        mutableMapOf(
-                            "$uniqueId" to ScalaQueueUpdateTask.language.userLoggedInTooLate
-                        )
+                    "content" to mutableMapOf(
+                        "$uniqueId" to ScalaQueueUpdateTask.language.userLoggedInTooLate
                     )
                 ).publish(
                     AwareThreadContext.SYNC

@@ -48,8 +48,8 @@ object SpigotRedisService
             .configure {
                 listen("redirect") {
                     val uniqueId = this.retrieve<UUID>("player")
-                    val server = this.retrieve<String>("server")
-                    val display = this.retrieve<String>("display")
+                    val server = this.retrieve<String>("server").removeSurrounding("\"")
+                    val display = this.retrieve<String>("display").removeSurrounding("\"")
 
                     val player = Bukkit.getPlayer(uniqueId)
                         ?: return@listen

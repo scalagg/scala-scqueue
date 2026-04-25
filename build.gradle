@@ -1,8 +1,8 @@
 plugins {
     id "maven-publish"
-    id "org.jetbrains.kotlin.jvm" version "1.9.10"
-    id "org.jetbrains.kotlin.kapt" version "1.9.10"
-    id "com.github.johnrengelman.shadow" version "7.1.2"
+    id "org.jetbrains.kotlin.jvm" version "2.0.20"
+    id "org.jetbrains.kotlin.kapt" version "2.0.20"
+    id "io.github.goooler.shadow" version "8.1.8"
 }
 
 allprojects {
@@ -16,6 +16,8 @@ allprojects {
         maven { url "https://oss.sonatype.org/content/repositories/snapshots" }
         maven { url "https://oss.sonatype.org/content/repositories/central" }
         maven { url "https://repo.viaversion.com/" }
+        maven { url "https://jitpack.io" }
+        maven { url "https://repo.aikar.co/content/groups/aikar/" }
 
         maven {
             name "Scala"
@@ -33,41 +35,55 @@ subprojects {
     apply plugin: "maven-publish"
     apply plugin: "org.jetbrains.kotlin.jvm"
     apply plugin: "org.jetbrains.kotlin.kapt"
-    apply plugin: "com.github.johnrengelman.shadow"
+    apply plugin: "io.github.goooler.shadow"
 
     dependencies {
-        compileOnly "org.jetbrains.kotlin:kotlin-stdlib:1.9.10"
+        compileOnly "org.jetbrains.kotlin:kotlin-stdlib:2.0.20"
 
-        compileOnly "gg.scala.aware:aware:1.0.8.3"
-        compileOnly "gg.scala.commons:serializers:3.0.7"
+        compileOnly "gg.scala.aware:aware:2.0.0"
+        compileOnly "gg.scala.commons:serializers:4.0.7"
 
         if (project.name == "spigot")
         {
-            compileOnly "gg.scala.commons:bukkit:3.3.1"
-            kapt "gg.scala.commons:bukkit:3.3.1"
+            compileOnly "gg.scala.commons:bukkit:4.0.7"
+            kapt "gg.scala.commons:bukkit:4.0.7"
 
-            compileOnly "gg.scala.store:spigot:0.1.3"
-            compileOnly "gg.scala.lemon:bukkit:1.5.1"
+            // scala-commons core and serversync for annotations and ServerSync
+            compileOnly "gg.scala.commons:core:4.0.7"
+            kapt "gg.scala.commons:core:4.0.7"
+            compileOnly "gg.scala.commons:serversync:4.0.7"
+
+            // ACF, helper, and flavor for kapt annotation processing
+            compileOnly "co.aikar:acf-paper:0.5.1-SNAPSHOT"
+            kapt "co.aikar:acf-paper:0.5.1-SNAPSHOT"
+            compileOnly "me.lucko:helper:5.6.14"
+            kapt "me.lucko:helper:5.6.14"
+            compileOnly "gg.scala.flavor:flavor:0.1.6"
+            kapt "gg.scala.flavor:flavor:0.1.6"
+
+            compileOnly "gg.scala.store:spigot:1.0.0"
+            compileOnly "gg.scala.store:shared:1.0.0"
+            compileOnly "gg.scala.lemon:bukkit:2.0.1"
             compileOnly "gg.scala.spigot:server:1.1.0"
 
             compileOnly "io.lettuce:lettuce-core:6.2.0.RELEASE"
             compileOnly "gg.scala.cloudsync:spigot:1.0.1"
         } else if (project.name == "server")
         {
-            api "org.jetbrains.kotlin:kotlin-stdlib:1.9.10"
+            api "org.jetbrains.kotlin:kotlin-stdlib:2.0.20"
 
-            api "gg.scala.aware:aware:1.0.8.3"
-            api "gg.scala.commons:serializers:3.1.9"
+            api "gg.scala.aware:aware:2.0.0"
+            api "gg.scala.commons:serializers:4.0.7"
 
             api "com.google.code.gson:gson:2.9.0"
-            api "gg.scala.commons:serversync:3.3.3"
+            api "gg.scala.commons:serversync:4.0.7"
             api "io.lettuce:lettuce-core:6.2.0.RELEASE"
 
             api "net.kyori:adventure-key:4.11.0"
             api "net.kyori:adventure-text-serializer-gson:4.11.0"
         } else
         {
-            compileOnly "gg.scala.commons:serversync:3.3.3"
+            compileOnly "gg.scala.commons:serversync:4.0.7"
         }
 
         if (project.name != "shared")
@@ -78,17 +94,22 @@ subprojects {
 
     compileKotlin {
         kotlinOptions.javaParameters = true
-        kotlinOptions.jvmTarget = "17"
+        kotlinOptions.jvmTarget = "21"
     }
 
     shadowJar {
         archiveClassifier.set("")
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 
         exclude "**/*.kotlin_metadata"
         exclude "**/*.kotlin_builtins"
         exclude "META-INF/"
 
         archiveFileName = "scala-queue-${project.name}.jar"
+    }
+
+    tasks.withType(Jar).configureEach {
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     }
 
     publishing {

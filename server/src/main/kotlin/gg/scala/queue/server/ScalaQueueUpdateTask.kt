@@ -4,7 +4,6 @@ import gg.scala.aware.thread.AwareThreadContext
 import gg.scala.commons.agnostic.sync.server.state.ServerState
 import gg.scala.queue.server.ScalaQueueCoordinator.queues
 import gg.scala.queue.shared.ScalaQueueRedisService
-import net.evilblock.cubed.serializers.Serializers
 import org.apache.commons.lang3.time.DurationFormatUtils
 import java.util.*
 import java.util.concurrent.TimeUnit
@@ -45,7 +44,7 @@ object ScalaQueueUpdateTask : Runnable
         for ((_, queue) in queues)
         {
             val servers = queue.servers()
-            val messageMap = mutableMapOf<UUID, String>()
+            val messageMap = mutableMapOf<String, String>()
 
             val offline = servers.isEmpty() || servers
                 .none {
@@ -86,13 +85,13 @@ object ScalaQueueUpdateTask : Runnable
                     }"
                 }
 
-                messageMap[entry.first] = "$baseMessage\n "
+                messageMap[entry.first.toString()] = "$baseMessage\n "
             }
 
             ScalaQueueRedisService
                 .createMessage(
                     "message",
-                    "content" to Serializers.gson.toJson(messageMap)
+                    "content" to messageMap
                 ).publish(
                     AwareThreadContext.SYNC
                 )
